@@ -24,15 +24,14 @@ CREATE TABLE measures (
     cpu_pct        REAL NOT NULL,
     ram_pct        REAL NOT NULL,
     disk_pct       REAL NOT NULL,
-    net_sent_bytes BIGINT NOT NULL DEFAULT 0,
-    net_recv_bytes BIGINT NOT NULL DEFAULT 0
+    net_sent_bytes BIGINT NOT NULL,
+    net_recv_bytes BIGINT NOT NULL
 );
 
 CREATE INDEX idx_measures_agent_ts ON measures (agent_id, ts DESC);
 
 CREATE TABLE thresholds (
-    id              SERIAL PRIMARY KEY,
-    agent_id        INTEGER UNIQUE REFERENCES agents(id) ON DELETE CASCADE,
+    agent_id        INTEGER PRIMARY KEY REFERENCES agents(id) ON DELETE CASCADE,
     cpu_crit        REAL NOT NULL DEFAULT 90,
     ram_crit        REAL NOT NULL DEFAULT 95,
     disk_crit       REAL NOT NULL DEFAULT 95,
