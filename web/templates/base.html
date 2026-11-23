@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Supervision du parc{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <span class="logo">Supervision du parc</span>
+    {% if session.username %}
+      <nav>
+        <span>{{ session.username }} ({{ session.role }})</span>
+        <a href="{{ url_for('logout') }}">Déconnexion</a>
+      </nav>
+    {% endif %}
+  </header>
+
+  <main>
+    {# Messages flash : erreurs, confirmations... #}
+    {% for categorie, message in get_flashed_messages(with_categories=true) %}
+      <div class="flash {{ categorie }}">{{ message }}</div>
+    {% endfor %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
