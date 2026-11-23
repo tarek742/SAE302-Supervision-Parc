@@ -2,9 +2,9 @@
 import psutil, os, time
 
 def recuperer_metrique():
-    cpu = psutil.cpu_percent(interval=1)
+    cpu_pct = psutil.cpu_percent(interval=1)
 
-    ram = psutil.virtual_memory().percent
+    ram_pct = psutil.virtual_memory().percent
     
 
     if os.name == 'nt':
@@ -12,17 +12,17 @@ def recuperer_metrique():
     else:
         chemin_disque = '/'     
 
-    disque = psutil.disk_usage(chemin_disque).percent
+    disk_pct = psutil.disk_usage(chemin_disque).percent
 
     Ancien_octets_envoyés = psutil.net_io_counters().bytes_sent
     Ancien_octets_reçus = psutil.net_io_counters().bytes_recv
     
     time.sleep(9)
     
-    Diff_octets_envoyés = psutil.net_io_counters().bytes_sent - Ancien_octets_envoyés
-    Diff_octets_reçus = psutil.net_io_counters().bytes_recv - Ancien_octets_reçus
+    net_sent_bytes = psutil.net_io_counters().bytes_sent - Ancien_octets_envoyés
+    net_recv_bytes = psutil.net_io_counters().bytes_recv - Ancien_octets_reçus
 
-    infos = {"cpu":cpu, "ram":ram, "disque":disque, "octets_envoyes":Diff_octets_envoyés, "octets_recus":Diff_octets_reçus}
+    infos = {"cpu":cpu_pct, "ram":ram_pct, "disque":disk_pct, "octets_envoyes":net_sent_bytes, "octets_recus":net_recv_bytes}
     return infos
 
 while True:
