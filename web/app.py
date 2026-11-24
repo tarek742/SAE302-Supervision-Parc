@@ -1,23 +1,28 @@
 """
 Interface web de supervision (SAÉ 3.02) — Flask.
 
-Étape 1 : connexion de l'administrateur.
-  - /login     : formulaire de connexion
+  - /login     : connexion (vérification du mot de passe via db/security.py de François)
   - /logout    : déconnexion
-  - /dashboard : page protégée (contenu ajouté à l'étape 2)
+  - /dashboard : dernière mesure et état de chaque agent
 """
 import os
+import sys
+from datetime import datetime, timezone
 from functools import wraps
 
 import psycopg
-from argon2 import PasswordHasher
-from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from dotenv import load_dotenv
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
-import db
+# On ajoute la racine du dépôt au chemin de Python pour pouvoir importer
+# le module de hachage de François (db/security.py) au lieu de le recopier.
+RACINE_DEPOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, RACINE_DEPOT)
+from db.security import verify_secret  # noqa: E402
 
-load_dotenv()  # lit le fichier .env et remplit les variables d'environnement
+import requetes  # noqa: E402
+
+load_dotenv()  # lit le fichier .env (cherché dans web/ puis dans les dossiers parents)
 
 app = Flask(__name__)
 
@@ -31,7 +36,8 @@ if not app.secret_key:
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-ph = PasswordHasher()  # argon2 : hachage salé, le sel est stocké dans le hash
+# Intervalle de rafraîchissement automatique du tableau de bord (secondes)
+RAFRAICHISSEMENT_S = 10
 
 
 def login_required(vue):
@@ -46,6 +52,21 @@ def login_required(vue):
             return redirect(url_for("login"))
         return vue(*args, **kwargs)
     return wrapper
+
+
+@app.template_filter("il_y_a")
+def il_y_a(date):
+    """Filtre Jinja : transforme une date en texte lisible (« il y a 12 s »)."""
+    if date is None:
+        return "jamais"
+    secondes = int((datetime.now(timezone.utc) - date).total_seconds())
+    if secondes < 60:
+        return f"il y a {max(secondes, 0)} s"
+    if secondes < 3600:
+        return f"il y a {secondes // 60} min"
+    if secondes < 86400:
+        return f"il y a {secondes // 3600} h"
+    return f"il y a {secondes // 86400} j"
 
 
 @app.route("/")
@@ -68,7 +89,7 @@ def login():
         return render_template("login.html"), 400
 
     try:
-        user = db.get_user(username)
+        user = requetes.get_user(username)
     except psycopg.OperationalError:
         # Base injoignable : on prévient au lieu de planter
         flash("Base de données indisponible, réessayez plus tard.", "error")
@@ -76,11 +97,7 @@ def login():
 
     # Même message que l'utilisateur existe ou non : on ne révèle pas
     # quels identifiants sont valides.
-    try:
-        if user is None:
-            raise VerifyMismatchError
-        ph.verify(user["password_hash"], password)
-    except (VerifyMismatchError, InvalidHashError):
+    if user is None or not verify_secret(user["password_hash"], password):
         flash("Identifiant ou mot de passe incorrect.", "error")
         return render_template("login.html", username=username), 401
 
@@ -102,10 +119,21 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    # Étape 2 : on affichera ici la dernière mesure de chaque agent
-    return render_template("dashboard.html")
+    try:
+        agents = requetes.get_tableau_de_bord()
+    except psycopg.OperationalError:
+        flash("Base de données indisponible, réessayez plus tard.", "error")
+        agents = []
+
+    nb_en_ligne = sum(1 for a in agents if not a["hors_ligne"])
+    return render_template(
+        "dashboard.html",
+        agents=agents,
+        nb_en_ligne=nb_en_ligne,
+        rafraichissement=RAFRAICHISSEMENT_S,
+    )
 
 
 if __name__ == "__main__":
     # debug=True uniquement en développement (rechargement auto + messages d'erreur)
-    app.run(host="0.0.0.0", port=5000, debug=os.getenv("FLASK_DEBUG") == "1")
+    app.run(host="127.0.0.1", port=5000, debug=os.getenv("FLASK_DEBUG") == "1")

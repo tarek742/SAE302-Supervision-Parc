@@ -1,9 +1,62 @@
 {% extends "base.html" %}
 {% block title %}Tableau de bord — Supervision{% endblock %}
 
+{# Rechargement automatique de la page : les nouvelles mesures apparaissent seules #}
+{% block head %}<meta http-equiv="refresh" content="{{ rafraichissement }}">{% endblock %}
+
 {% block content %}
 <section class="carte">
-  <h1>Tableau de bord</h1>
-  <p>Bienvenue {{ session.username }}. La liste des machines arrive à l'étape 2.</p>
+  <div class="entete-page">
+    <h1>Tableau de bord</h1>
+    <p class="resume">
+      <strong>{{ nb_en_ligne }}</strong> / {{ agents|length }} machine(s) en ligne
+      <span class="discret">· actualisé toutes les {{ rafraichissement }} s</span>
+    </p>
+  </div>
+
+  {% if agents %}
+  <table class="tableau">
+    <thead>
+      <tr>
+        <th>État</th>
+        <th>Machine</th>
+        <th class="nombre">CPU</th>
+        <th class="nombre">RAM</th>
+        <th class="nombre">Disque</th>
+        <th>Dernière mesure</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in agents %}
+      <tr class="{{ 'ligne-hors-ligne' if a.hors_ligne }}">
+        <td>
+          {% if a.hors_ligne %}
+            <span class="badge hors-ligne">Hors ligne</span>
+          {% else %}
+            <span class="badge en-ligne">En ligne</span>
+          {% endif %}
+        </td>
+        <td>
+          <span class="nom-agent">{{ a.agent_name }}</span>
+          {% if a.hostname %}<span class="discret">{{ a.hostname }}</span>{% endif %}
+        </td>
+        {% if a.derniere_mesure %}
+          <td class="nombre">{{ "%.0f"|format(a.cpu_pct) }} %</td>
+          <td class="nombre">{{ "%.0f"|format(a.ram_pct) }} %</td>
+          <td class="nombre">{{ "%.0f"|format(a.disk_pct) }} %</td>
+        {% else %}
+          <td class="nombre discret">—</td>
+          <td class="nombre discret">—</td>
+          <td class="nombre discret">—</td>
+        {% endif %}
+        <td class="discret">{{ a.derniere_mesure|il_y_a }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="vide">Aucune machine enregistrée pour l'instant.
+    Les agents apparaîtront ici dès qu'ils seront déclarés en base.</p>
+  {% endif %}
 </section>
 {% endblock %}
