@@ -73,7 +73,13 @@ button:hover { background: #2c5282; }
 }
 .tableau td { padding: 0.75rem; border-bottom: 1px solid #f0f1f3; }
 .tableau .nombre { text-align: right; font-variant-numeric: tabular-nums; }
-.nom-agent { font-weight: 600; display: block; }
+.nom-agent { font-weight: 600; display: block; color: #1e3a5f; text-decoration: none; }
+a.nom-agent:hover { text-decoration: underline; }
+.ligne-hors-ligne .nom-agent { color: #9ca3af; }
+
+h2 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; }
+.retour { color: #1e3a5f; text-decoration: none; font-size: 0.95rem; }
+.retour:hover { text-decoration: underline; }
 .ligne-hors-ligne td { color: #9ca3af; }
 
 .badge {

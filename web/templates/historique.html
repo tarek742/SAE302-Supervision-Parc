@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ agent.agent_name }} — Historique{% endblock %}
+
+{% block content %}
+<p><a class="retour" href="{{ url_for('dashboard') }}">← Tableau de bord</a></p>
+
+<section class="carte">
+  <div class="entete-page">
+    <div>
+      <h1>{{ agent.agent_name }}</h1>
+      {% if agent.hostname %}<span class="discret">{{ agent.hostname }}</span>{% endif %}
+    </div>
+    <p class="resume">
+      {% if agent.hors_ligne %}
+        <span class="badge hors-ligne">Hors ligne</span>
+      {% else %}
+        <span class="badge en-ligne">En ligne</span>
+      {% endif %}
+      <span class="discret">· dernier contact {{ agent.last_seen|il_y_a }}</span>
+    </p>
+  </div>
+
+  <p class="discret">
+    Seuils d'alerte : CPU {{ "%.0f"|format(agent.cpu_crit) }} % ·
+    RAM {{ "%.0f"|format(agent.ram_crit) }} % ·
+    Disque {{ "%.0f"|format(agent.disk_crit) }} % ·
+    hors ligne après {{ agent.offline_after_s }} s
+  </p>
+
+  <h2>{{ mesures|length }} dernière(s) mesure(s)</h2>
+
+  {% if mesures %}
+  <table class="tableau">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th class="nombre">CPU</th>
+        <th class="nombre">RAM</th>
+        <th class="nombre">Disque</th>
+        <th class="nombre">Envoyé</th>
+        <th class="nombre">Reçu</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in mesures %}
+      <tr>
+        <td>{{ m.ts|heure }}</td>
+        <td class="nombre">{{ "%.0f"|format(m.cpu_pct) }} %</td>
+        <td class="nombre">{{ "%.0f"|format(m.ram_pct) }} %</td>
+        <td class="nombre">{{ "%.0f"|format(m.disk_pct) }} %</td>
+        <td class="nombre discret">{{ m.net_sent_bytes|debit }}</td>
+        <td class="nombre discret">{{ m.net_recv_bytes|debit }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="vide">Aucune mesure reçue de cette machine pour l'instant.</p>
+  {% endif %}
+</section>
+{% endblock %}

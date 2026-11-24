@@ -1,10 +1,4 @@
-"""
-Interface web de supervision (SAÉ 3.02) — Flask.
-
-  - /login     : connexion (vérification du mot de passe via db/security.py de François)
-  - /logout    : déconnexion
-  - /dashboard : dernière mesure et état de chaque agent
-"""
+"""Interface web de supervision (Flask)."""
 import os
 import sys
 from datetime import datetime, timezone
@@ -12,39 +6,27 @@ from functools import wraps
 
 import psycopg
 from dotenv import load_dotenv
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 
-# On ajoute la racine du dépôt au chemin de Python pour pouvoir importer
-# le module de hachage de François (db/security.py) au lieu de le recopier.
-RACINE_DEPOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, RACINE_DEPOT)
+RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, RACINE)
 from db.security import verify_secret  # noqa: E402
 
 import requetes  # noqa: E402
 
-load_dotenv()  # lit le fichier .env (cherché dans web/ puis dans les dossiers parents)
+load_dotenv(os.path.join(RACINE, ".env"))
 
 app = Flask(__name__)
-
-# Clé qui signe le cookie de session : sans elle, un utilisateur pourrait
-# fabriquer un faux cookie et se faire passer pour l'admin.
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 if not app.secret_key:
-    raise RuntimeError("FLASK_SECRET_KEY manquant dans le fichier .env")
-
-# Le cookie de session n'est pas lisible en JavaScript (protection XSS)
+    raise RuntimeError("FLASK_SECRET_KEY manquant dans le .env")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-# Intervalle de rafraîchissement automatique du tableau de bord (secondes)
 RAFRAICHISSEMENT_S = 10
 
 
 def login_required(vue):
-    """Décorateur : redirige vers /login si personne n'est connecté.
-
-    On le place au-dessus de chaque route à protéger : @login_required
-    """
     @wraps(vue)
     def wrapper(*args, **kwargs):
         if "user_id" not in session:
@@ -56,17 +38,28 @@ def login_required(vue):
 
 @app.template_filter("il_y_a")
 def il_y_a(date):
-    """Filtre Jinja : transforme une date en texte lisible (« il y a 12 s »)."""
     if date is None:
         return "jamais"
-    secondes = int((datetime.now(timezone.utc) - date).total_seconds())
-    if secondes < 60:
-        return f"il y a {max(secondes, 0)} s"
-    if secondes < 3600:
-        return f"il y a {secondes // 60} min"
-    if secondes < 86400:
-        return f"il y a {secondes // 3600} h"
-    return f"il y a {secondes // 86400} j"
+    s = int((datetime.now(timezone.utc) - date).total_seconds())
+    if s < 60:
+        return f"il y a {max(s, 0)} s"
+    if s < 3600:
+        return f"il y a {s // 60} min"
+    if s < 86400:
+        return f"il y a {s // 3600} h"
+    return f"il y a {s // 86400} j"
+
+
+@app.template_filter("heure")
+def heure(date):
+    return date.astimezone().strftime("%d/%m %H:%M:%S")
+
+
+@app.template_filter("debit")
+def debit(octets):
+    if octets < 1024 * 1024:
+        return f"{octets / 1024:.1f} Ko"
+    return f"{octets / (1024 * 1024):.1f} Mo"
 
 
 @app.route("/")
@@ -76,14 +69,11 @@ def index():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    # GET : on affiche simplement le formulaire
     if request.method == "GET":
         return render_template("login.html")
 
-    # POST : le formulaire a été envoyé
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
-
     if not username or not password:
         flash("Identifiant et mot de passe obligatoires.", "error")
         return render_template("login.html"), 400
@@ -91,17 +81,14 @@ def login():
     try:
         user = requetes.get_user(username)
     except psycopg.OperationalError:
-        # Base injoignable : on prévient au lieu de planter
         flash("Base de données indisponible, réessayez plus tard.", "error")
         return render_template("login.html"), 503
 
-    # Même message que l'utilisateur existe ou non : on ne révèle pas
-    # quels identifiants sont valides.
+    # Même message dans les deux cas pour ne pas révéler les identifiants existants
     if user is None or not verify_secret(user["password_hash"], password):
         flash("Identifiant ou mot de passe incorrect.", "error")
         return render_template("login.html", username=username), 401
 
-    # Connexion réussie : on repart d'une session vide puis on y range l'utilisateur
     session.clear()
     session["user_id"] = user["id"]
     session["username"] = user["username"]
@@ -125,15 +112,33 @@ def dashboard():
         flash("Base de données indisponible, réessayez plus tard.", "error")
         agents = []
 
-    nb_en_ligne = sum(1 for a in agents if not a["hors_ligne"])
     return render_template(
         "dashboard.html",
         agents=agents,
-        nb_en_ligne=nb_en_ligne,
+        nb_en_ligne=sum(1 for a in agents if not a["hors_ligne"]),
         rafraichissement=RAFRAICHISSEMENT_S,
     )
 
 
+@app.route("/agent/<int:agent_id>")
+@login_required
+def historique(agent_id):
+    try:
+        agent = requetes.get_agent(agent_id)
+        if agent is None:
+            abort(404)
+        mesures = requetes.get_historique(agent_id)
+    except psycopg.OperationalError:
+        flash("Base de données indisponible, réessayez plus tard.", "error")
+        return redirect(url_for("dashboard"))
+
+    return render_template("historique.html", agent=agent, mesures=mesures)
+
+
+@app.errorhandler(404)
+def page_introuvable(erreur):
+    return render_template("404.html"), 404
+
+
 if __name__ == "__main__":
-    # debug=True uniquement en développement (rechargement auto + messages d'erreur)
     app.run(host="127.0.0.1", port=5000, debug=os.getenv("FLASK_DEBUG") == "1")
