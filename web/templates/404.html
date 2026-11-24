@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Page introuvable — Supervision{% endblock %}
+
+{% block content %}
+<section class="carte">
+  <h1>Page introuvable</h1>
+  <p>Cette page ou cette machine n'existe pas.</p>
+  <p><a class="retour" href="{{ url_for('dashboard') }}">← Retour au tableau de bord</a></p>
+</section>
+{% endblock %}

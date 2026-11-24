@@ -19,7 +19,6 @@
   </header>
 
   <main>
-    {# Messages flash : erreurs, confirmations... #}
     {% for categorie, message in get_flashed_messages(with_categories=true) %}
       <div class="flash {{ categorie }}">{{ message }}</div>
     {% endfor %}

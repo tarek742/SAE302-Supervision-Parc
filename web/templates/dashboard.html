@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Tableau de bord — Supervision{% endblock %}
 
-{# Rechargement automatique de la page : les nouvelles mesures apparaissent seules #}
 {% block head %}<meta http-equiv="refresh" content="{{ rafraichissement }}">{% endblock %}
 
 {% block content %}
@@ -37,7 +36,7 @@
           {% endif %}
         </td>
         <td>
-          <span class="nom-agent">{{ a.agent_name }}</span>
+          <a class="nom-agent" href="{{ url_for('historique', agent_id=a.id) }}">{{ a.agent_name }}</a>
           {% if a.hostname %}<span class="discret">{{ a.hostname }}</span>{% endif %}
         </td>
         {% if a.derniere_mesure %}
