@@ -25,6 +25,9 @@
     RAM {{ "%.0f"|format(agent.ram_crit) }} % ·
     Disque {{ "%.0f"|format(agent.disk_crit) }} % ·
     hors ligne après {{ agent.offline_after_s }} s
+    {% if session.role == 'admin' %}
+      · <a class="retour" href="{{ url_for('seuils', agent_id=agent.id) }}">Modifier</a>
+    {% endif %}
   </p>
 
   <h2>{{ mesures|length }} dernière(s) mesure(s)</h2>

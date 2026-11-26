@@ -36,6 +36,24 @@ def login_required(vue):
     return wrapper
 
 
+def admin_required(vue):
+    @wraps(vue)
+    def wrapper(*args, **kwargs):
+        if session.get("role") != "admin":
+            abort(403)
+        return vue(*args, **kwargs)
+    return wrapper
+
+
+def lire_nombre(formulaire, champ, minimum, maximum, entier=False):
+    """Renvoie la valeur du champ, ou None si elle est absente, invalide ou hors bornes."""
+    try:
+        valeur = int(formulaire[champ]) if entier else float(formulaire[champ].replace(",", "."))
+    except (KeyError, ValueError):
+        return None
+    return valeur if minimum <= valeur <= maximum else None
+
+
 @app.template_filter("il_y_a")
 def il_y_a(date):
     if date is None:
@@ -135,9 +153,52 @@ def historique(agent_id):
     return render_template("historique.html", agent=agent, mesures=mesures)
 
 
+@app.route("/agent/<int:agent_id>/seuils", methods=["GET", "POST"])
+@login_required
+@admin_required
+def seuils(agent_id):
+    try:
+        agent = requetes.get_agent(agent_id)
+    except psycopg.OperationalError:
+        flash("Base de données indisponible, réessayez plus tard.", "error")
+        return redirect(url_for("dashboard"))
+    if agent is None:
+        abort(404)
+
+    if request.method == "GET":
+        return render_template("seuils.html", agent=agent, valeurs=agent)
+
+    valeurs = {
+        "cpu_crit": lire_nombre(request.form, "cpu_crit", 0, 100),
+        "ram_crit": lire_nombre(request.form, "ram_crit", 0, 100),
+        "disk_crit": lire_nombre(request.form, "disk_crit", 0, 100),
+        "offline_after_s": lire_nombre(request.form, "offline_after_s", 10, 86400, entier=True),
+    }
+    if None in valeurs.values():
+        flash("Valeurs invalides : pourcentages entre 0 et 100, délai entre 10 et 86400 s.", "error")
+        saisie = {champ: request.form.get(champ, "") for champ in valeurs}
+        return render_template("seuils.html", agent=agent, valeurs=saisie), 400
+
+    try:
+        requetes.enregistrer_seuils(agent_id, **valeurs)
+    except psycopg.OperationalError:
+        flash("Base de données indisponible, réessayez plus tard.", "error")
+        return render_template("seuils.html", agent=agent, valeurs=valeurs), 503
+
+    flash(f"Seuils de {agent['agent_name']} enregistrés.", "info")
+    return redirect(url_for("historique", agent_id=agent_id))
+
+
+@app.errorhandler(403)
+def acces_refuse(erreur):
+    return render_template("erreur.html", titre="Accès refusé",
+                           message="Cette action est réservée aux administrateurs."), 403
+
+
 @app.errorhandler(404)
 def page_introuvable(erreur):
-    return render_template("404.html"), 404
+    return render_template("erreur.html", titre="Page introuvable",
+                           message="Cette page ou cette machine n'existe pas."), 404
 
 
 if __name__ == "__main__":

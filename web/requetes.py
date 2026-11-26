@@ -77,6 +77,23 @@ def get_agent(agent_id):
         return cur.fetchone()
 
 
+def enregistrer_seuils(agent_id, cpu_crit, ram_crit, disk_crit, offline_after_s):
+    # Crée la ligne si l'agent n'a pas encore de seuils, la met à jour sinon
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO thresholds (agent_id, cpu_crit, ram_crit, disk_crit, offline_after_s)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (agent_id) DO UPDATE SET
+                cpu_crit        = EXCLUDED.cpu_crit,
+                ram_crit        = EXCLUDED.ram_crit,
+                disk_crit       = EXCLUDED.disk_crit,
+                offline_after_s = EXCLUDED.offline_after_s
+            """,
+            (agent_id, cpu_crit, ram_crit, disk_crit, offline_after_s),
+        )
+
+
 def get_historique(agent_id, limite=100):
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute(
