@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from security import hash_secret
 
-load_dotenv()
+RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(RACINE, ".env"))
 
 
 def main():
