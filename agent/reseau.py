@@ -2,15 +2,16 @@
 import socket
 import json
 import time
-from collecte import recuperer_metrique
+from collecte import *
 
 
-def envoyer_donnees(host="127.0.0.1", port=8080, intervalle=10, delai_reconnexion=5):
+def envoyer_donnees(simuler,nom,secret, host="127.0.0.1", port=8080, intervalle=10, delai_reconnexion=5):
     """
     Établit une connexion TCP persistante avec le serveur et envoie
     périodiquement les métriques système au format JSON.
     Gère la reconnexion automatique et l'arrêt propre via Ctrl+C.
     """
+
     s = None
     try:
         while True:
@@ -27,9 +28,16 @@ def envoyer_donnees(host="127.0.0.1", port=8080, intervalle=10, delai_reconnexio
                 time.sleep(delai_reconnexion)
                 continue
 
+            json_auth = json.dumps({"type": "auth", "agent_name": nom, "secret": secret}) + "\n"
+            s.sendall(json_auth.encode("utf-8"))
+            reponse_auth = s.recv(1024)
+
             while True:
                 try:
-                    metriques = recuperer_metrique()
+                    if simuler:
+                        metriques = simulation_metrique()
+                    else : 
+                        metriques = recuperer_metrique()
                     message = (json.dumps(metriques) + "\n").encode("utf-8")
                     s.sendall(message)
 
