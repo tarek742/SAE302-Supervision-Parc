@@ -100,3 +100,16 @@ h2 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; }
 .flash { padding: 0.7rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
 .flash.error { background: #fee2e2; color: #991b1b; }
 .flash.info  { background: #dbeafe; color: #1e40af; }
+
+/* ---------- Alertes ---------- */
+.badge.alerte { background: #fee2e2; color: #991b1b; }
+.tableau td.critique { color: #b91c1c; font-weight: 700; background: #fef2f2; }
+.bandeau-alerte {
+  padding: 0.7rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  border-left: 4px solid #b91c1c;
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 600;
+}

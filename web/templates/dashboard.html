@@ -3,7 +3,18 @@
 
 {% block head %}<meta http-equiv="refresh" content="{{ rafraichissement }}">{% endblock %}
 
+{% macro cellule(agent, mesure, seuil) %}
+  <td class="nombre{{ ' critique' if mesure in agent.alertes }}"
+      title="Seuil : {{ '%.0f'|format(agent[seuil]) }} %">{{ "%.0f"|format(agent[mesure]) }} %</td>
+{% endmacro %}
+
 {% block content %}
+{% if nb_alertes %}
+<div class="bandeau-alerte">
+  ⚠ {{ nb_alertes }} machine(s) dépasse(nt) un seuil d'alerte.
+</div>
+{% endif %}
+
 <section class="carte">
   <div class="entete-page">
     <h1>Tableau de bord</h1>
@@ -27,10 +38,12 @@
     </thead>
     <tbody>
       {% for a in agents %}
-      <tr class="{{ 'ligne-hors-ligne' if a.hors_ligne }}">
+      <tr class="{{ 'ligne-hors-ligne' if a.hors_ligne }}{{ 'ligne-alerte' if a.alertes }}">
         <td>
           {% if a.hors_ligne %}
             <span class="badge hors-ligne">Hors ligne</span>
+          {% elif a.alertes %}
+            <span class="badge alerte">Alerte</span>
           {% else %}
             <span class="badge en-ligne">En ligne</span>
           {% endif %}
@@ -40,9 +53,9 @@
           {% if a.hostname %}<span class="discret">{{ a.hostname }}</span>{% endif %}
         </td>
         {% if a.derniere_mesure %}
-          <td class="nombre">{{ "%.0f"|format(a.cpu_pct) }} %</td>
-          <td class="nombre">{{ "%.0f"|format(a.ram_pct) }} %</td>
-          <td class="nombre">{{ "%.0f"|format(a.disk_pct) }} %</td>
+          {{ cellule(a, 'cpu_pct', 'cpu_crit') }}
+          {{ cellule(a, 'ram_pct', 'ram_crit') }}
+          {{ cellule(a, 'disk_pct', 'disk_crit') }}
         {% else %}
           <td class="nombre discret">—</td>
           <td class="nombre discret">—</td>

@@ -54,6 +54,23 @@ def lire_nombre(formulaire, champ, minimum, maximum, entier=False):
     return valeur if minimum <= valeur <= maximum else None
 
 
+METRIQUES = (("cpu_pct", "cpu_crit"), ("ram_pct", "ram_crit"), ("disk_pct", "disk_crit"))
+
+
+def ajouter_alertes(agent):
+    """Ajoute agent["alertes"] : les métriques au-dessus de leur seuil.
+
+    Pas d'alerte pour une machine hors ligne : sa dernière mesure n'est plus actuelle.
+    """
+    agent["alertes"] = set()
+    if agent["hors_ligne"] or agent["derniere_mesure"] is None:
+        return agent
+    for mesure, seuil in METRIQUES:
+        if agent[mesure] >= agent[seuil]:
+            agent["alertes"].add(mesure)
+    return agent
+
+
 @app.template_filter("il_y_a")
 def il_y_a(date):
     if date is None:
@@ -125,7 +142,7 @@ def logout():
 @login_required
 def dashboard():
     try:
-        agents = requetes.get_tableau_de_bord()
+        agents = [ajouter_alertes(a) for a in requetes.get_tableau_de_bord()]
     except psycopg.OperationalError:
         flash("Base de données indisponible, réessayez plus tard.", "error")
         agents = []
@@ -134,6 +151,7 @@ def dashboard():
         "dashboard.html",
         agents=agents,
         nb_en_ligne=sum(1 for a in agents if not a["hors_ligne"]),
+        nb_alertes=sum(1 for a in agents if a["alertes"]),
         rafraichissement=RAFRAICHISSEMENT_S,
     )
 
@@ -145,6 +163,7 @@ def historique(agent_id):
         agent = requetes.get_agent(agent_id)
         if agent is None:
             abort(404)
+        ajouter_alertes(agent)
         mesures = requetes.get_historique(agent_id)
     except psycopg.OperationalError:
         flash("Base de données indisponible, réessayez plus tard.", "error")

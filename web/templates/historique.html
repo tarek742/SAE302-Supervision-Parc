@@ -13,6 +13,8 @@
     <p class="resume">
       {% if agent.hors_ligne %}
         <span class="badge hors-ligne">Hors ligne</span>
+      {% elif agent.alertes %}
+        <span class="badge alerte">Alerte</span>
       {% else %}
         <span class="badge en-ligne">En ligne</span>
       {% endif %}
@@ -48,9 +50,9 @@
       {% for m in mesures %}
       <tr>
         <td>{{ m.ts|heure }}</td>
-        <td class="nombre">{{ "%.0f"|format(m.cpu_pct) }} %</td>
-        <td class="nombre">{{ "%.0f"|format(m.ram_pct) }} %</td>
-        <td class="nombre">{{ "%.0f"|format(m.disk_pct) }} %</td>
+        <td class="nombre{{ ' critique' if m.cpu_pct >= agent.cpu_crit }}">{{ "%.0f"|format(m.cpu_pct) }} %</td>
+        <td class="nombre{{ ' critique' if m.ram_pct >= agent.ram_crit }}">{{ "%.0f"|format(m.ram_pct) }} %</td>
+        <td class="nombre{{ ' critique' if m.disk_pct >= agent.disk_crit }}">{{ "%.0f"|format(m.disk_pct) }} %</td>
         <td class="nombre discret">{{ m.net_sent_bytes|debit }}</td>
         <td class="nombre discret">{{ m.net_recv_bytes|debit }}</td>
       </tr>
